@@ -9,8 +9,8 @@ Due to the large number of records, it is necessary to download records into sma
 ## Environment
 Under the root folder, create the following folders.  
 ```data/pubmed```: contains all downloaded PubMed files  
-```save/pubmed```: PubMed files converted into RDS will be created    
-```save/rds```: RDS necesssary for data analysis will be created  
+```save/pubmed```: store PubMed files converted into RDS    
+```save/rds```: store RDS necesssary for data analysis  
 ```R markdown```: contains R markdown files for data analysis (working directory)  
 ```figure```: plots will be created  
 
