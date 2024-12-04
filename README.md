@@ -20,5 +20,5 @@ Under the root folder, create the following folders.
 ```03_pubmed_cleaning```: data preprocessing and assignment of PubMed index date  
 ```04_pubmed_selection```: literature selection for eligible records  
 ```05_time_series_overall```: time series analysis of overall counts of publications containing each term  
-```06_time_series_individual```: time series analysis of publication counts in NAFLD/MAFLD/MASLD category
+```06_time_series_individual```: time series analysis of publication counts in NAFLD/MAFLD/MASLD category  
 ```07_flow_chart```: draw flow chart for literature selection  
