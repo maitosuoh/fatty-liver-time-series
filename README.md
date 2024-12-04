@@ -4,7 +4,7 @@ This repository contains R code for time series analysis of publication counts i
 ## Data
 The original records downloaded from PubMed was not included in the repository due to potential copyright infringement.     
 They can be downloaded with the query described in the Supplementary data of the paper.  
-Due to the large number of records, it is necessary to download records into smaller batches.  
+Due to the large number of records, it is necessary to download them in smaller batches.  
 
 ## Environment
 Under the root folder, create the following folders.  
