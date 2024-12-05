@@ -1,5 +1,5 @@
 # Time series analysis of the literature with fatty liver disase  
-This repository contains R code for time series analysis of publication counts in fatty liver disease.  
+This repository contains R code for time series analysis of publication counts in fatty liver disease from 2010 to late 2024.  
 
 ## Data
 The original records downloaded from PubMed was not included in the repository due to potential copyright infringement.     
