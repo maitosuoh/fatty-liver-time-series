@@ -8,7 +8,7 @@ Due to the large number of records, it is necessary to download them in smaller 
 
 ## Environment
 Under the root folder, create the following folders.  
-```data/pubmed```: place all downloaded PubMed files.
+```data/pubmed```: place all downloaded PubMed files.  
 ```save/pubmed```: store PubMed files converted into RDS    
 ```save/rds```: store RDS necesssary for data analysis  
 ```R markdown```: contains R markdown files for data analysis (working directory)  
