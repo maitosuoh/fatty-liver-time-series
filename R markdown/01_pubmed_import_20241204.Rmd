@@ -1,0 +1,70 @@
+---
+title: "Time series"
+output: html_document
+date: "2024-11-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(bibliometrix)
+library(tidyverse)
+```
+
+
+```{r}
+# get all file names of PubMed record
+data_name <- list.files("../data/pubmed/", pattern = "txt")
+data_name
+```
+
+```{r}
+# Last file is broken because it is old
+# remove the last one
+data_name <- data_name[1:(length(data_name) -1)]
+
+data_name 
+```
+
+
+```{r}
+# get 
+data_path <- paste0("../data/pubmed/", data_name)
+data_path
+```
+
+```{r}
+# 
+data_num <- str_c("pubmed_",
+                  data_name %>% str_extract("^[:digit:]{2}"))
+
+data_num
+```
+
+```{r}
+# define paths for saving RDS
+save_path <- paste0("../save/pubmed/", data_num)
+save_path
+```
+
+```{r}
+# create function for loading PubMed records and save as RDS files
+import_pubmed <- function(data_path, save_path){
+  convert2df(data_path, dbsource = "pubmed", format = "pubmed") %>% as_tibble() %>%
+  saveRDS(save_path)
+}
+```
+
+
+```{r}
+# use for loop to import PubMed and save as RDS 
+for (i in 1:length(data_path)){
+  import_pubmed(data_path[i], save_path[i])
+  print(paste(data_num[i], "completed"))
+}
+```
+
+
+

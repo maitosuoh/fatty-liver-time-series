@@ -1,0 +1,607 @@
+---
+title: "MAFLD"
+output: html_document
+date: "2024-06-17"
+---
+
+```{r}
+library(bibliometrix)
+library(tidyverse)
+library(fpp3)
+library(ggrepel)
+library(glue)
+library(ggtext)
+library(patchwork)
+library(cowplot)
+```
+
+```{r}
+# read RDS df_nmfs
+df_nmfs <- readRDS("../save/rds/df_nmfs")
+```
+
+```{r}
+df_nmfs %>% count(NMFS)
+```
+
+```{r}
+# create factor levels for NMFS
+
+levels_nmfs <- c("NAFLD", "MAFLD", "MASLD",
+                 "NAFLD_MAFLD", "NAFLD_MASLD", "MAFLD_MASLD",
+                 "NAFLD_MAFLD_MASLD") 
+```
+
+```{r}
+nrow(df_nmfs)
+```
+
+```{r}
+# add factor levels to NMFS 
+df_nmfs <- df_nmfs %>%
+  mutate(NMFS = factor(NMFS, levels = levels_nmfs))
+```
+
+```{r}
+df_nmfs %>% count(NMFS)
+```
+
+```{r}
+# check earliest MASLD statement
+
+df_nmfs %>% filter(str_detect(NMFS, "MASLD")) %>%
+  filter(DATE_pm == min(DATE_pm)) %>%
+  select(PM, DI, TI, J9, DATE_pm, DATE_pubmed, CRDT, EDAT)
+
+# all MASLD statement 
+```
+
+```{r}
+df_nmfs %>%
+  filter(DATE_m >= as_date("2020-01-01") &  DATE_m <= as_date("2024-10-31")) %>%
+  count(DATE_m, NMFS) %>%
+  mutate(DATE_index = yearmonth(DATE_m)) %>%
+  as_tsibble(index = DATE_index, key = NMFS) %>%
+  fill_gaps(n = 0) %>%
+  View()
+```
+
+```{r}
+# tsbl after 2020
+tsbl_nmfs <- df_nmfs %>%
+  filter(DATE_m >= as_date("2010-01-01") &  DATE_m <= as_date("2024-10-01")) %>%
+  count(DATE_m, NMFS) %>%
+  mutate(DATE_index = yearmonth(DATE_m)) %>%
+  as_tsibble(index = DATE_index, key = NMFS) %>%
+  fill_gaps(n = 0, .end = yearmonth(as_date("2024-10-01"))) %>%
+  mutate(DATE_m = yearmonth(DATE_index)) %>%
+  mutate(DATE_m = as_date(DATE_m))
+```
+
+```{r}
+tsbl_nmfs %>% View()
+```
+
+```{r}
+# check NAFLD max
+
+tsbl_nmfs %>% filter(NMFS == "NAFLD") %>%
+  filter(n == max(n))
+```
+
+```{r}
+df_nmfs %>% count(NMFS)
+```
+
+
+```{r}
+n_nmfs <- df_nmfs %>% count(NMFS) %>% pull(n)
+
+n_nmfs
+```
+
+
+```{r}
+# create and plot p2_a
+p2_a <- tsbl_nmfs %>%
+  filter(DATE_m >= as_date("2020-01-01") & DATE_m <= as_date("2025-01-01")) %>%
+  ggplot(aes(DATE_m, n, colour = NMFS, group = NMFS))+
+  geom_hline(yintercept = 441,
+             linewidth= 0.3,
+             colour = "#999999", alpha = 0.5)+
+  geom_vline(xintercept = as_date("2023-03-01"),
+             linewidth= 0.3,
+             colour = "#999999", alpha = 0.5)+
+   geom_vline(xintercept = as_date("2023-06-01"), linetype = 3,
+             linewidth= 0.3)+
+    geom_line(linewidth = 0.3)+
+   scale_x_yearmonth(limits = c(as_date("2020-01-01"), as_date("2025-01-01")),
+                     breaks = c(seq(as_date("2020-01-01"), as_date("2025-01-01"), by = "1 year")),
+                    date_labels = "%Y")+
+  scale_y_continuous(breaks = c(seq(0, 500, 100), 441),
+                     limit = c(0, 500))+
+  scale_colour_manual(values = c("#f781bf",
+                                 "#ff7f00",
+                                 "#4daf4a",
+                                 "#377eb8",
+                                 "#a65628",
+                                 "#984ea3",
+                                 "#e41a1c"),
+                      labels = c(paste0("NAFLD (only) (n = ", n_nmfs[1], ")"),
+                                 paste0("MAFLD (only) (n = ", n_nmfs[2], ")"),
+                                 paste0("MASLD (only) (n = ", n_nmfs[3], ")"),
+                                 paste0("NAFLD-MAFLD (n = ", n_nmfs[4], ")"),
+                                 paste0("NAFLD-MASLD (n = ", n_nmfs[5], ")"),
+                                 paste0("MAFLD-MASLD (n = ", n_nmfs[6], ")"),
+                                 paste0("All (n = ", n_nmfs[7], ")")),
+                      name = "Category",
+                      guide = guide_legend(override.aes = list(linewidth = 0.5)))+
+    labs(x = "Year",
+       y= "Count",
+       tag = "A")+
+  theme_classic()+
+     theme(plot.tag = element_text(size = 12, face="bold"),
+           title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.text.x = element_text(size = 8, colour = "black",
+                                   hjust = 0.5),
+        axis.text.y = element_text(size = 8, colour = "black"),
+        axis.line = element_line(linewidth = 0.3, colour = "black"),
+        axis.ticks = element_line(linewidth = 0.3, colour = "black"),
+        legend.title = element_text(size = 8, colour = "black", face = "bold"),
+        legend.text = element_text(size = 8, colour = "black"), 
+        plot.margin = unit(c(0,0,0,0), "mm"))
+
+#ggsave("total_counts_2010.pdf")
+
+p2_a
+```
+
+
+
+```{r}
+dcmp_stl_nama <- tsbl_nmfs  %>%
+  filter(NMFS %in% c("NAFLD", "MAFLD", "NAFLD_MAFLD")) %>%
+  group_by_key(NMFS) %>%
+  model(STL(n ~ trend(), robust = TRUE))%>%
+  components() %>%
+  mutate(DATE_m = ym(DATE_index)) %>%
+  mutate(DATE_m = as_date(DATE_m))
+```
+
+```{r}
+dcmp_stl_nama %>%
+  filter(NMFS == "NAFLD") %>%
+  filter(n == max(n))
+```
+
+```{r}
+dcmp_stl_nama %>% filter(DATE_m == max(DATE_m))
+```
+
+```{r}
+p2_b <- dcmp_stl_nama %>%
+  ggplot(aes(DATE_m, trend, colour = NMFS, group= NMFS))+
+  geom_vline(xintercept = as_date("2023-06-01"), linewidth= 0.3,
+             linetype = 3)+
+  geom_line(linewidth = 0.6)+
+  scale_colour_manual(values = c("#f781bf",
+                                 "#ff7f00",
+                                 "#377eb8"))+
+  geom_line(data = dcmp_stl_nama %>% filter(NMFS == "NAFLD"),
+            aes(DATE_m, n), colour = "#999999",
+            linewidth = 0.3, alpha = 1)+
+  scale_x_date(breaks = c(seq(as_date("2010-01-01"), as_date("2025-01-01"), by = "5 year")),
+                    date_labels = "%Y")+
+  scale_y_continuous(breaks = seq(0, 500, 100),
+                     limits = c(0, 500))+
+  labs(x = "Year",
+       y= "Count",
+       tag = "B")+
+  theme_classic()+
+     theme(plot.tag = element_text(size = 12, face="bold"),
+           title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.text.x = element_text(size = 8, colour = "black"),
+        axis.text.y = element_text(size = 8, colour = "black"),
+        axis.line = element_line(linewidth = 0.3, colour = "black"),
+        axis.ticks = element_line(linewidth = 0.3, colour = "black"),
+        legend.position = "none",
+#        legend.title = element_text(size = 8, colour = "black", face = "bold"),
+#        legend.text = element_text(size = 8, colour = "black"), 
+        plot.margin = unit(c(0,0,0,0), "mm"))
+
+p2_b
+```
+
+```{r}
+# fit TSLM to NAFLD after 2023
+
+mbl_nafld <- tsbl_nmfs %>%
+  filter(NMFS == "NAFLD" & DATE_m >= as_date("2023-03-01") & DATE_m <= as_date("2024-10-31")) %>%
+  model(tslm = TSLM(n ~ trend())) 
+```
+
+```{r}
+report(mbl_nafld)
+```
+
+
+```{r}
+# fit TSLM
+fit_nafld <- mbl_nafld %>%
+  augment() %>% 
+  mutate(DATE_m = ym(DATE_index)) %>%
+  mutate(DATE_m = as_date(DATE_m))
+```
+
+```{r}
+fit_nafld
+```
+
+```{r}
+label_nafld <- mbl_nafld %>% glance() %>% filter(.model == "tslm") %>%
+  mutate(label = glue("*p* < 0.001<br>adjusted *R*<sup>2</sup> = {round(adj_r_squared, 2)}"))
+
+label_nafld
+```
+
+
+```{r}
+p2_c <- fit_nafld %>%
+  filter(.model == "tslm") %>%
+  ggplot(aes(DATE_index, .fitted))+
+  geom_line(colour = "#f781bf",
+            linewidth = 0.6)+
+  geom_line(data = tsbl_nmfs %>%
+              filter(NMFS == "NAFLD", DATE_m >= "2020-01-01" & DATE_m <= "2023-03-01"),
+            aes(DATE_m, n), colour = "#999999",
+            linewidth = 0.3, alpha = 1)+
+   geom_line(data = tsbl_nmfs %>%
+              filter(NMFS == "NAFLD", DATE_m >= "2023-03-01" & DATE_m <= "2024-10-31"),
+            aes(DATE_m, n), colour = "#f781bf",
+            linewidth = 0.3, alpha = 1)+
+   scale_x_yearmonth(limits = c(as_date("2020-01-01"), as_date("2025-01-01")),
+                     breaks = c(seq(as_date("2020-01-01"), as_date("2025-01-01"), by = "1 year")),
+                    date_labels = "%Y")+
+  
+  scale_y_continuous(breaks = seq(0, 500, 100),
+                     limits = c(0, 500))+
+  geom_richtext(data = label_nafld,
+                aes(x = as_date("2023-01-01"), y = 0, label = label),
+                size = 2.8,
+                hjust =0, vjust = 0,
+                fill = NA, label.color = NA)+
+   labs(x = "Year",
+       y= "Count",
+       tag = "C")+
+  theme_classic()+
+     theme(plot.tag = element_text(size = 12, face="bold"),
+           title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.text.x = element_text(size = 8, colour = "black"),
+        axis.text.y = element_text(size = 8, colour = "black"),
+        axis.line = element_line(linewidth = 0.3, colour = "black"),
+        axis.ticks = element_line(linewidth = 0.3, colour = "black"),
+        legend.position = "none",
+#        legend.title = element_text(size = 8, colour = "black", face = "bold"),
+#        legend.text = element_text(size = 8, colour = "black"), 
+        plot.margin = unit(c(0,0,0,0), "mm"))
+
+p2_c
+  
+  
+```
+
+
+```{r}
+p2_d <- dcmp_stl_nama %>%
+  filter(str_detect(NMFS, "MAFLD")) %>%
+  ggplot(aes(DATE_index, trend, colour = NMFS, group = NMFS))+
+  geom_vline(xintercept = as_date("2023-06-01"), linewidth= 0.3,
+             linetype = 3)+
+  geom_line(linewidth = 0.6)+
+  geom_line(data = dcmp_stl_nama %>% filter(str_detect(NMFS, "MAFLD")),
+            aes(DATE_m, n, colour = NMFS, group= NMFS),
+            linewidth = 0.3, alpha = 1)+
+  scale_colour_manual(values = c("#ff7f00",
+                                 "#377eb8"))+
+  scale_x_yearmonth(limits = c(as_date("2020-01-01"), as_date("2025-01-01")),
+                     breaks = c(seq(as_date("2020-01-01"), as_date("2025-01-01"), by = "1 year")),
+                    date_labels = "%Y")+
+  scale_y_continuous(breaks = seq(0, 40, 10),
+                     limits = c(0, 40))+
+  labs(x = "Year",
+       y= "Count",
+       tag = "D")+
+  theme_classic()+
+     theme(plot.tag = element_text(size = 12, face="bold"),
+           title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.text.x = element_text(size = 8, colour = "black"),
+        axis.text.y = element_text(size = 8, colour = "black"),
+        axis.line = element_line(linewidth = 0.3, colour = "black"),
+        axis.ticks = element_line(linewidth = 0.3, colour = "black"),
+        legend.position = "none",
+        plot.margin = unit(c(0,0,0,0), "mm"))
+
+p2_d
+
+#ggsave(plot = p2_d, "decomp_mafld.pdf")
+```
+
+```{r}
+# fit TSLM to NAFLD after 2023
+
+mbl_mafld <- tsbl_nmfs %>%
+  filter(NMFS == "MAFLD" & DATE_m >= as_date("2020-01-01") & DATE_m <= as_date("2024-10-31")) %>%
+  model(tslm = TSLM(n ~ trend())) 
+```
+
+```{r}
+report(mbl_mafld %>% select(tslm))
+```
+
+```{r}
+mbl_mafld %>% accuracy()
+
+mbl_mafld %>% glance()
+```
+
+
+```{r}
+# fit TSLM
+fit_mafld <- mbl_mafld %>%
+  augment() %>% 
+  mutate(DATE_m = ym(DATE_index)) %>%
+  mutate(DATE_m = as_date(DATE_m))
+```
+
+```{r}
+fit_mafld
+```
+
+```{r}
+label_mafld <- mbl_mafld %>% glance() %>% filter(.model == "tslm") %>%
+  mutate(label = glue("*p* < 0.001<br>adjusted *R*<sup>2</sup> = {round(adj_r_squared, 2)}"))
+
+label_mafld
+```
+
+```{r}
+mbl_nafld_mafld <- tsbl_nmfs %>%
+  filter(NMFS == "NAFLD_MAFLD" & DATE_m >= as_date("2023-01-01") & DATE_m <= as_date("2024-10-31")) %>%
+  model(tslm = TSLM(n ~ trend())) 
+```
+
+```{r}
+fit_nafld_mafld  <- mbl_nafld_mafld %>%
+  augment() %>% 
+  mutate(DATE_m = ym(DATE_index)) %>%
+  mutate(DATE_m = as_date(DATE_m))
+```
+
+```{r}
+label_nafld_mafld <- mbl_nafld_mafld %>% glance() %>% filter(.model == "tslm") %>%
+  mutate(label = glue("*p* < 0.001<br>adjusted *R*<sup>2</sup> = {round(adj_r_squared, 2)}"))
+
+label_nafld_mafld
+```
+
+
+```{r}
+p2_e <- fit_mafld %>%
+  filter(.model == "tslm") %>%
+  ggplot(aes(DATE_index, .fitted))+
+  geom_line(data = tsbl_nmfs %>%
+            filter(NMFS == "NAFLD_MAFLD", DATE_m >= "2020-01-01" & DATE_m <= "2023-01-01"),
+            aes(DATE_m, n), colour = "#999999",
+            linewidth = 0.3, alpha = 1)+
+  geom_line(colour = "#ff7f00",
+            linewidth = 0.6)+
+  geom_line(data = tsbl_nmfs %>%
+            filter(NMFS == "MAFLD", DATE_m >= "2020-01-01" & DATE_m <= "2024-10-31"),
+            aes(DATE_index, n), colour = "#ff7f00",
+            linewidth = 0.3, alpha = 1)+
+  geom_line(data = fit_nafld_mafld %>% filter(.model == "tslm"),
+            aes(DATE_index, .fitted), colour = "#377eb8",
+            linewidth = 0.6, alpha = 1)+
+  geom_line(data = fit_nafld_mafld %>% filter(.model == "tslm"),
+            aes(DATE_index, n), colour = "#377eb8",
+            linewidth = 0.3, alpha = 1)+
+  scale_x_yearmonth(limits = c(as_date("2020-01-01"), as_date("2025-01-01")),
+                     breaks = c(seq(as_date("2020-01-01"), as_date("2025-01-01"), by = "1 year")),
+                    date_labels = "%Y")+
+  scale_y_continuous(breaks = seq(0, 40, 10),
+                     limits = c(0, 40))+
+  geom_richtext(data = label_mafld,
+                aes(x = as_date("2020-01-01"), y = 40, label = label),
+                size = 2.8,
+                hjust =0, vjust = 1,
+                fill = NA, label.color = NA)+
+  geom_richtext(data = label_nafld_mafld,
+                aes(x = as_date("2021-12-01"), y = 0, label = label),
+                size = 2.8,
+                hjust =0, vjust = 0,
+                fill = NA, label.color = NA)+
+   labs(x = "Year",
+       y= "Count",
+       tag = "E")+
+  theme_classic()+
+     theme(plot.tag = element_text(size = 12, face="bold"),
+           title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.text.x = element_text(size = 8, colour = "black"),
+        axis.text.y = element_text(size = 8, colour = "black"),
+        axis.line = element_line(linewidth = 0.3, colour = "black"),
+        axis.ticks = element_line(linewidth = 0.3, colour = "black"),
+        legend.position = "none",
+        plot.margin = unit(c(0,0,0,0), "mm"))
+
+p2_e
+```
+
+```{r}
+tsbl_nmfs %>% filter(str_detect(NMFS, "MASLD")) %>%
+  filter(n == max(n))
+```
+
+```{r}
+tsbl_nmfs %>% filter(str_detect(NMFS, "NAFLD_MASLD")) %>%
+  filter(n == max(n))
+```
+```{r}
+tsbl_nmfs 
+```
+
+
+```{r}
+# related to MASLD
+
+p2_f <- tsbl_nmfs %>%
+  filter(str_detect(NMFS, "MASLD")) %>%
+  filter(DATE_m >= as_date("2023-01-01") &  DATE_m <= as_date("2024-10-31")) %>%
+  ggplot(aes(DATE_index, n, colour = NMFS, group = NMFS))+
+  geom_vline(xintercept = as_date("2023-06-01"), linetype = 3,
+             linewidth= 0.3)+
+  geom_line(linewidth = 0.3)+
+   scale_x_yearmonth(breaks = c(seq(as_date("2023-07-01"), as_date("2024-07-01"), by = "6 month")),
+                     limits = c(as_date("2023-06-01"), as_date("2024-10-01")),
+                    date_labels = "%Y-%m")+
+  scale_y_continuous(breaks = c(seq(0, 250, 50)),
+                     limit = c(0, 250))+
+  scale_colour_manual(values = c("#4daf4a",
+                                 "#a65628",
+                                 "#984ea3",
+                                 "#e41a1c"))+
+    labs(x = "Year",
+       y= "Count",
+       tag = "F")+
+  theme_classic()+
+     theme(plot.tag = element_text(size = 12, face="bold"),
+           title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.text.x = element_text(size = 8, colour = "black" ),
+        axis.text.y = element_text(size = 8, colour = "black"),
+        axis.line = element_line(linewidth = 0.3, colour = "black"),
+        axis.ticks = element_line(linewidth = 0.3, colour = "black"),
+        legend.position = "none",
+        plot.margin = unit(c(0,0,0,0), "mm"))
+  
+
+p2_f
+```
+
+```{r}
+# linear model for MASLD
+
+mbl_masld <- tsbl_nmfs %>%
+  filter(NMFS == "MASLD") %>%
+  model(tslm = TSLM(n ~ trend()))
+```
+
+
+```{r}
+report(mbl_masld)
+```
+
+```{r}
+mbl_masld %>% accuracy()
+
+mbl_masld %>% glance()
+```
+
+
+```{r}
+# fit TSLM
+fit_masld <- mbl_masld %>%
+  augment() %>% 
+  mutate(DATE_m = ym(DATE_index)) %>%
+  mutate(DATE_m = as_date(DATE_m))
+```
+
+```{r}
+fit_masld
+```
+
+```{r}
+label_masld <- mbl_masld %>% glance() %>% filter(.model == "tslm") %>%
+  mutate(label = glue("*p* < 0.001<br>adjusted *R*<sup>2</sup> = {round(adj_r_squared, 2)}"))
+
+label_masld
+```
+
+
+
+```{r}
+p2_g <- fit_masld %>%
+  ggplot(aes(DATE_index, .fitted))+
+  geom_line(colour = "#4daf4a",
+            linewidth = 0.6)+
+   geom_line(data = tsbl_nmfs %>%
+              filter(NMFS == "MASLD", DATE_m >= "2023-06-01" & DATE_m <= "2024-10-31"),
+            aes(DATE_m, n), colour = "#4daf4a",
+            linewidth = 0.3, alpha = 1)+
+   scale_x_yearmonth(breaks = c(seq(as_date("2023-07-01"), as_date("2024-07-01"), by = "6 month")),
+                     limits = c(as_date("2023-06-01"), as_date("2024-10-01")),
+                    date_labels = "%Y-%m")+
+  scale_y_continuous(breaks = seq(0, 250, 50),
+                     limits = c(-5, 250))+
+  geom_richtext(data = label_masld,
+                aes(x = as_date("2023-06-01"), y = 250, label = label),
+                size = 2.8,
+                hjust =0, vjust = 1,
+                fill = NA, label.color = NA)+
+   labs(x = "Year",
+       y= "Count",
+       tag = "G")+
+  theme_classic()+
+     theme(plot.tag = element_text(size = 12, face="bold"),
+           title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.title = element_text(size = 8, colour = "black", face = "bold"),
+        axis.text.x = element_text(size = 8, colour = "black"),
+        axis.text.y = element_text(size = 8, colour = "black"),
+        axis.line = element_line(linewidth = 0.3, colour = "black"),
+        axis.ticks = element_line(linewidth = 0.3, colour = "black"),
+        legend.position = "none",
+#        legend.title = element_text(size = 8, colour = "black", face = "bold"),
+#        legend.text = element_text(size = 8, colour = "black"), 
+        plot.margin = unit(c(0,0,0,0), "mm"))
+
+p2_g
+  
+  
+```
+
+```{r}
+p2_a_legend <- get_legend(p2_a) 
+p2_a_legend
+```
+
+```{r}
+p2_a_legend <- wrap_elements(full = p2_a_legend)
+```
+
+
+```{r}
+p2_a_no_legend <- p2_a + theme(legend.position = "none")
+```
+
+
+```{r}
+# assemble plots
+
+p2 <-  p2_a_no_legend + p2_a_legend + p2_b + p2_c + p2_d + p2_e + p2_f + p2_g+
+  plot_layout(design = "
+              AAAB
+              AAAB
+              AAAB
+              CCDD
+              CCDD
+              EEFF
+              EEFF
+              GGHH
+              GGHH")
+
+ggsave("../figure/Fig2.pdf", p2, width = 175, height = 235, unit = "mm")
+```
